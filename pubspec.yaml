@@ -1,0 +1,21 @@
+name: hermetica
+description: Hermetica SDK for Flutter. Track events, identify users, register push tokens, show in-app messages and report geofence events.
+version: 0.1.0
+repository: https://github.com/hermeticacomms/hermetica-flutter
+issue_tracker: https://github.com/hermeticacomms/hermetica-flutter/issues
+topics: [analytics, push-notifications, in-app-messaging, marketing, geofencing]
+
+environment:
+  sdk: ^3.5.0
+  flutter: '>=3.24.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  shared_preferences: ^2.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0

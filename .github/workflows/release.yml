@@ -1,0 +1,31 @@
+# Push a tag matching pubspec.yaml ("v0.1.0") to publish to pub.dev with automated publishing (GitHub OIDC, no secret).
+# One-time setup on pub.dev (the first version must be published by hand: `flutter pub publish` by an uploader, since
+# automated publishing can only be enabled on an existing package):
+#   pub.dev/packages/hermetica/admin -> Automated publishing -> Enable publishing from GitHub Actions
+#     Repository: hermeticacomms/hermetica-flutter    Tag pattern: v{{version}}
+#     Require GitHub Actions environment: on, environment: pub.dev (create that environment in the GitHub repo settings)
+# Optionally move the package to a verified publisher (hermeticacomms) under the same admin page.
+name: release
+on:
+  push: { tags: ['v*'] }
+permissions: { contents: write, id-token: write, attestations: write }
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pub.dev
+    steps:
+      - uses: actions/checkout@v5
+      - run: test "v$(sed -n 's/^version: *//p' pubspec.yaml)" = "$GITHUB_REF_NAME"
+      - uses: dart-lang/setup-dart@v1 # exchanges the GitHub OIDC token for a pub.dev token
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test
+      # Outside the checkout, so pub does not upload it.
+      - run: git archive --prefix "hermetica-flutter-$GITHUB_REF_NAME/" -o "$RUNNER_TEMP/hermetica-flutter-$GITHUB_REF_NAME.tar.gz" HEAD
+      - uses: actions/attest-build-provenance@v3
+        with: { subject-path: '${{ runner.temp }}/hermetica-flutter-*.tar.gz' }
+      - run: flutter pub publish --force
+      - run: gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP"/hermetica-flutter-*.tar.gz --generate-notes
+        env: { GH_TOKEN: '${{ github.token }}' }
