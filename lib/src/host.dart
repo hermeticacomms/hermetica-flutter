@@ -17,6 +17,7 @@ typedef InAppActionHandler = bool Function(String action, String value, InAppMes
 /// Shows in-app messages over [child]. Put it once near the root, e.g. `MaterialApp(builder: (context, child) =>
 /// HermeticaInAppHost(child: child!))`. It fetches messages on mount (`app_open`) and on every screen or event the
 /// client reports, shows the best one at a time (each message once per host), and tracks impression, click and dismiss.
+/// The system back button closes the message on top (reported as a dismiss) instead of leaving the screen.
 class HermeticaInAppHost extends StatefulWidget {
   const HermeticaInAppHost({super.key, this.client, this.builder, this.onAction, this.fetchOnMount = true, required this.child});
 
@@ -35,6 +36,8 @@ class _HostState extends State<HermeticaInAppHost> {
   final _queue = <InAppMessage>[];
   final _seen = <String>{};
   StreamSubscription<InAppTrigger>? _sub;
+  LocalHistoryEntry? _backEntry;
+  ModalRoute<Object?>? _backRoute;
 
   Hermetica get _client => widget.client ?? Hermetica.instance;
 
@@ -48,7 +51,62 @@ class _HostState extends State<HermeticaInAppHost> {
   @override
   void dispose() {
     _sub?.cancel();
+    final entry = _backEntry, route = _backRoute;
+    _backEntry = null;
+    // Not now: removing it rebuilds the route, which may be unmounting with us.
+    if (entry != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (route?.isActive ?? false) entry.remove();
+      });
+    }
     super.dispose();
+  }
+
+  // Back closes the message the way it closes a Drawer: a local history entry on the current route is popped first.
+  void _syncBack() {
+    if (!mounted || _queue.isNotEmpty == (_backEntry != null)) return;
+    final entry = _backEntry;
+    if (entry != null) {
+      _backEntry = null;
+      if (_backRoute?.isActive ?? false) entry.remove();
+      return;
+    }
+    final route = _currentRoute();
+    if (route == null) return;
+    _backRoute = route;
+    _backEntry = LocalHistoryEntry(impliesAppBarDismissal: false, onRemove: _onBack);
+    route.addLocalHistoryEntry(_backEntry!);
+  }
+
+  void _onBack() {
+    if (!mounted || _backEntry == null) return; // removed by _syncBack, not by the back button
+    _backEntry = null;
+    _dismiss();
+  }
+
+  /// The route the host is in, or else the top route of the first Navigator below it (the usual
+  /// `MaterialApp(builder: ...)` setup puts the host above the Navigator).
+  ModalRoute<Object?>? _currentRoute() {
+    final own = ModalRoute.of(context);
+    if (own != null) return own;
+    NavigatorState? nav;
+    void visit(Element e) {
+      if (nav != null) return;
+      if (e is StatefulElement && e.state is NavigatorState) {
+        nav = e.state as NavigatorState;
+      } else {
+        e.visitChildElements(visit);
+      }
+    }
+
+    context.visitChildElements(visit);
+    Route<Object?>? top;
+    nav?.popUntil((r) {
+      top = r; // a predicate that is always true reads the top route without popping
+      return true;
+    });
+    final t = top;
+    return t is ModalRoute<Object?> ? t : null;
   }
 
   Future<void> _run(InAppTrigger t) async {
@@ -89,6 +147,7 @@ class _HostState extends State<HermeticaInAppHost> {
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncBack());
     final m = _queue.isEmpty ? null : _queue.first;
     return Stack(fit: StackFit.expand, children: [
       widget.child,
@@ -96,7 +155,6 @@ class _HostState extends State<HermeticaInAppHost> {
     ]);
   }
 
-  // shortcut: the Android back button does not close a message (the host sits above the Navigator); add a PopScope route if needed.
   Widget _place(InAppMessage m, Widget card) {
     final align = switch (m.layout) {
       'banner_top' => Alignment.topCenter,

@@ -78,6 +78,8 @@ top/bottom banner, bottom sheet or fullscreen, with image, heading, text and but
 and dismiss. Targeting and frequency caps are applied by the server per session; the host shows each message once.
 
 - Buttons: `deep_link` / `url` go to `onDeepLink`, `event` buttons track that event, `dismiss` closes.
+- The Android back button closes the message on top and reports a dismissal, like closing a drawer; the screen
+  behind stays.
 - `onAction: (action, value, message) => true` handles a button yourself (true skips the default).
 - `builder: (context, message, onButton, onDismiss) => MyCard(...)` renders messages yourself; call `onButton` /
   `onDismiss` so the click or dismissal is reported.

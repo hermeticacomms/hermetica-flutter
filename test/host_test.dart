@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermetica/hermetica.dart';
 import 'package:hermetica/src/host.dart' show hexColor;
@@ -54,6 +57,42 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Big sale'), findsNothing);
     expect(inAppEvents(), ['impression', 'dismiss']);
+    hm.dispose();
+  });
+
+  // What the engine sends for the Android back button.
+  Future<void> systemBack(WidgetTester tester) => tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+      'flutter/navigation', const JSONMethodCodec().encodeMethodCall(const MethodCall('popRoute')), (_) {});
+
+  testWidgets('the back button closes the message and reports a dismissal', (tester) async {
+    final hm = await start(tester, messageJson());
+    await tester.pumpWidget(app(hm));
+    await tester.pumpAndSettle();
+    expect(find.text('Big sale'), findsOneWidget);
+
+    await systemBack(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Big sale'), findsNothing);
+    expect(find.text('home'), findsOneWidget);
+    expect(inAppEvents(), ['impression', 'dismiss']);
+    hm.dispose();
+  });
+
+  testWidgets('after the message closes, back goes to the app again', (tester) async {
+    final hm = await start(tester, messageJson());
+    await tester.pumpWidget(app(hm));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Later'));
+    await tester.pumpAndSettle();
+
+    final nav = tester.state<NavigatorState>(find.byType(Navigator));
+    unawaited(nav.push(MaterialPageRoute<void>(builder: (_) => const Text('details'))));
+    await tester.pumpAndSettle();
+    await systemBack(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('details'), findsNothing);
+    expect(find.text('home'), findsOneWidget);
+    expect(inAppEvents(), ['impression', 'click:Later']);
     hm.dispose();
   });
 
