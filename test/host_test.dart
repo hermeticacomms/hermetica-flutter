@@ -96,6 +96,27 @@ void main() {
     hm.dispose();
   });
 
+  testWidgets('tells Android predictive back that an open message takes the back gesture', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final handlesBack = <Object?>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (c) async {
+      if (c.method == 'SystemNavigator.setFrameworkHandlesBack') handlesBack.add(c.arguments);
+      return null;
+    });
+    final hm = await start(tester, messageJson());
+    await tester.pumpWidget(app(hm));
+    await tester.pumpAndSettle();
+    expect(handlesBack.last, isTrue);
+
+    await tester.tap(find.text('Later'));
+    await tester.pumpAndSettle();
+    expect(handlesBack.last, isFalse); // only the home route: back leaves the app, with the system's preview
+    hm.dispose();
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   testWidgets('shows each message once, and fetches again on a screen trigger', (tester) async {
     final hm = await start(tester, messageJson());
     await tester.pumpWidget(app(hm));

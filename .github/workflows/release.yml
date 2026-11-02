@@ -20,7 +20,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with: { channel: stable, cache: true }
       - run: flutter pub get
-      - run: flutter analyze --no-fatal-infos
+      - run: flutter analyze
       - run: flutter test
       # Outside the checkout, so pub does not upload it.
       - run: git archive --prefix "hermetica-flutter-$GITHUB_REF_NAME/" -o "$RUNNER_TEMP/hermetica-flutter-$GITHUB_REF_NAME.tar.gz" HEAD

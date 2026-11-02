@@ -17,7 +17,8 @@ typedef InAppActionHandler = bool Function(String action, String value, InAppMes
 /// Shows in-app messages over [child]. Put it once near the root, e.g. `MaterialApp(builder: (context, child) =>
 /// HermeticaInAppHost(child: child!))`. It fetches messages on mount (`app_open`) and on every screen or event the
 /// client reports, shows the best one at a time (each message once per host), and tracks impression, click and dismiss.
-/// The system back button closes the message on top (reported as a dismiss) instead of leaving the screen.
+/// The system back button or gesture closes the message on top (reported as a dismiss) instead of leaving the screen,
+/// including Android's predictive back (the app opts in with `android:enableOnBackInvokedCallback="true"`).
 class HermeticaInAppHost extends StatefulWidget {
   const HermeticaInAppHost({super.key, this.client, this.builder, this.onAction, this.fetchOnMount = true, required this.child});
 
@@ -69,6 +70,7 @@ class _HostState extends State<HermeticaInAppHost> {
     if (entry != null) {
       _backEntry = null;
       if (_backRoute?.isActive ?? false) entry.remove();
+      _announceBack();
       return;
     }
     final route = _currentRoute();
@@ -76,12 +78,23 @@ class _HostState extends State<HermeticaInAppHost> {
     _backRoute = route;
     _backEntry = LocalHistoryEntry(impliesAppBarDismissal: false, onRemove: _onBack);
     route.addLocalHistoryEntry(_backEntry!);
+    _announceBack();
+  }
+
+  // Android predictive back (enableOnBackInvokedCallback): the app tells the OS up front whether Flutter takes the back
+  // gesture. Adding a local history entry does not notify, so the host does: while a message shows, back is ours (no
+  // back-to-home preview); after, the navigator's own answer applies again.
+  void _announceBack() {
+    if (!mounted) return;
+    final nav = _backRoute?.navigator;
+    NavigationNotification(canHandlePop: _backEntry != null || (nav?.canPop() ?? false)).dispatch(context);
   }
 
   void _onBack() {
     if (!mounted || _backEntry == null) return; // removed by _syncBack, not by the back button
     _backEntry = null;
     _dismiss();
+    _announceBack();
   }
 
   /// The route the host is in, or else the top route of the first Navigator below it (the usual

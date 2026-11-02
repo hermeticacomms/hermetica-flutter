@@ -1,3 +1,8 @@
+## Unreleased
+
+- Native push token capture: `registerNativePushToken` / `unregisterNativePushToken` (FCM on Android, APNs on iOS), re-checked on resume.
+- Android predictive back: the in-app host reports when it takes the back gesture.
+
 ## 0.1.0
 
 - First release: `Hermetica.initialize`, `identify`, `track`, `screen`, `setProfileAttributes`, `reset`.

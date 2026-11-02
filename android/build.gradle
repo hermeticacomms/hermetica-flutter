@@ -1,0 +1,42 @@
+// Native side of the Flutter plugin: reads the FCM token and the notification permission (lib/src/native_push.dart).
+group = "com.hermeticacomms.hermetica_flutter"
+version = "1.0"
+
+buildscript {
+    ext.kotlin_version = "2.1.0"
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.7.3")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
+
+android {
+    namespace = "com.hermeticacomms.hermetica_flutter"
+    compileSdk = 35
+    defaultConfig { minSdk = 21 }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = "17" }
+    sourceSets { main.java.srcDirs += "src/main/kotlin" }
+}
+
+dependencies {
+    // Optional: the app brings Firebase (firebase_messaging does). Without it the plugin answers with no token.
+    compileOnly("com.google.firebase:firebase-messaging:24.1.0")
+}

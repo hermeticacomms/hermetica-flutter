@@ -1,8 +1,8 @@
 # Hermetica for Flutter
 
 Track events, identify users, register push tokens, show in-app messages and report geofence events from a Flutter app.
-Pure Dart: no platform channels. Push tokens and geofence transitions come from the plugins you already use
-(firebase_messaging, APNs, a geofencing plugin) and are handed to the SDK.
+Mostly Dart: the only native code reads the push token (FCM on Android, APNs on iOS). Geofence transitions come from
+the geofencing plugin you already use and are handed to the SDK.
 
 ```yaml
 dependencies:
@@ -52,6 +52,15 @@ Consent and suppression are also enforced by the server.
 ## Push
 
 ```dart
+await hm.registerNativePushToken(requestPermission: true); // reads the token natively and registers it
+```
+
+The plugin reads the FCM token on Android (the app must include Firebase, e.g. firebase_messaging) and the APNs token on
+iOS (enable the Push Notifications capability), with the OS permission and background state. It checks again on every
+resume and re-registers only when the token or permission changed; `identify` and `reset` move it to the new profile.
+`hm.unregisterNativePushToken()` stops it (logout). To hand a token in yourself instead:
+
+```dart
 final token = await FirebaseMessaging.instance.getToken();
 await hm.registerPushToken(token!, const PushOptions(vendor: PushVendor.fcm));
 // iOS with APNs tokens: PushOptions(vendor: PushVendor.apns, environment: PushEnvironment.debug) in debug builds.
@@ -79,7 +88,8 @@ and dismiss. Targeting and frequency caps are applied by the server per session;
 
 - Buttons: `deep_link` / `url` go to `onDeepLink`, `event` buttons track that event, `dismiss` closes.
 - The Android back button closes the message on top and reports a dismissal, like closing a drawer; the screen
-  behind stays.
+  behind stays. Predictive back works too: with `android:enableOnBackInvokedCallback="true"` on the `<application>`,
+  the host tells Android that Flutter takes the gesture while a message shows, and hands it back after.
 - `onAction: (action, value, message) => true` handles a button yourself (true skips the default).
 - `builder: (context, message, onButton, onDismiss) => MyCard(...)` renders messages yourself; call `onButton` /
   `onDismiss` so the click or dismissal is reported.

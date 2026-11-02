@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api.dart';
 import 'models.dart';
+import 'native_push.dart';
 import 'push.dart';
 
 const sdkVersion = '0.1.0';
@@ -158,6 +159,7 @@ class Hermetica with WidgetsBindingObserver {
     }
     unawaited(_prefs.setString(_kProfile, jsonEncode(_profile)));
     _identify(traits);
+    _moveNativePush();
   }
 
   /// Sets profile properties (first name, plan, ...). Needs a known profile: call [identify] first.
@@ -183,6 +185,7 @@ class Hermetica with WidgetsBindingObserver {
     _aid = null;
     await _prefs.remove(_kProfile);
     await _prefs.remove(_kAid);
+    _moveNativePush();
   }
 
   /// Tracks an event. [value] is in minor currency units (cents).
@@ -259,6 +262,8 @@ class Hermetica with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) unawaited(flush());
+    // The user may have switched notifications on or off in system settings meanwhile.
+    if (state == AppLifecycleState.resumed && _nativeOn) unawaited(registerNativePushToken());
   }
 
   /// Stops timers and listeners. [initialize] calls it on the previous client.
@@ -279,9 +284,45 @@ class Hermetica with WidgetsBindingObserver {
   /// Registers the device token (from firebase_messaging or APNs) with this profile. False when the server refused it.
   Future<bool> registerPushToken(String token, PushOptions options) async => _ok(await _api.post('/client/push-tokens', _pushBody('push-token', token, options)));
 
+  NativePushToken? _nativePush;
+  bool _nativeOn = false;
+
+  /// Reads the device token with the bundled native plugin (FCM on Android, which needs firebase_messaging or
+  /// Firebase in the app; APNs on iOS) and registers it with this profile, along with what the OS allows. Re-checked
+  /// on every resume once it has run, and sent again only when the token or permission changed. [requestPermission]
+  /// shows the notification prompt if the user has not decided. False when there is no token or the server refused it.
+  Future<bool> registerNativePushToken({bool requestPermission = false}) async {
+    _nativeOn = true;
+    final t = await readNativePushToken(requestPermission: requestPermission);
+    if (t == null) return false;
+    if (t.sameAs(_nativePush)) return true;
+    final ok = await registerPushToken(t.token, t.options);
+    if (ok) _nativePush = t;
+    return ok;
+  }
+
+  /// The profile changed: the natively read token follows it to the new profile.
+  void _moveNativePush() {
+    final t = _nativePush;
+    if (t == null) return;
+    unawaited(registerPushToken(t.token, t.options).then((ok) => _nativePush = ok ? t : null));
+  }
+
   /// The token stops receiving pushes (for example on logout).
-  Future<bool> unregisterPushToken(String token, PushOptions options) async =>
-      _ok(await _api.post('/client/push-token-unregister', _pushBody('push-token-unregister', token, options)));
+  /// Also stops the native token from being registered again on resume (until [registerNativePushToken] runs again).
+  Future<bool> unregisterPushToken(String token, PushOptions options) async {
+    if (_nativePush?.token == token) {
+      _nativeOn = false;
+      _nativePush = null;
+    }
+    return _ok(await _api.post('/client/push-token-unregister', _pushBody('push-token-unregister', token, options)));
+  }
+
+  /// Unregisters the token [registerNativePushToken] registered, if any.
+  Future<bool> unregisterNativePushToken() async {
+    final t = _nativePush;
+    return t == null || await unregisterPushToken(t.token, t.options);
+  }
 
   static bool _ok(http.Response? r) => r != null && r.statusCode >= 200 && r.statusCode < 300;
 

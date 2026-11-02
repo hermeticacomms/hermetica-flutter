@@ -19,3 +19,13 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+
+flutter:
+  # Native push token capture (android/, ios/); everything else is plain Dart.
+  plugin:
+    platforms:
+      android:
+        package: com.hermeticacomms.hermetica_flutter
+        pluginClass: HermeticaPlugin
+      ios:
+        pluginClass: HermeticaPlugin
