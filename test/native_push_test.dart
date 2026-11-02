@@ -1,6 +1,4 @@
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hermetica/hermetica.dart';
 import 'package:hermetica/src/native_push.dart' show pushChannel;
 
 import 'support.dart';
