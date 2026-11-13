@@ -1,7 +1,7 @@
 # Native side of the Flutter plugin: reads the APNs token and the notification settings (lib/src/native_push.dart).
 Pod::Spec.new do |s|
   s.name             = 'hermetica'
-  s.version          = '0.1.0'
+  s.version          = '0.4.0'
   s.summary          = 'Hermetica SDK for Flutter: native push token capture.'
   s.homepage         = 'https://github.com/hermeticacomms/hermetica-flutter'
   s.license          = { :type => 'MIT', :file => '../LICENSE' }

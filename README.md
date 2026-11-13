@@ -6,7 +6,7 @@ the geofencing plugin you already use and are handed to the SDK.
 
 ```yaml
 dependencies:
-  hermetica: ^0.1.0
+  hermetica: ^0.4.0
 ```
 
 ## Start
