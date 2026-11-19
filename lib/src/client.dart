@@ -12,7 +12,7 @@ import 'models.dart';
 import 'native_push.dart';
 import 'push.dart';
 
-const sdkVersion = '0.4.0';
+const sdkVersion = '0.4.9';
 const _serverMaxBatch = 50;
 const _retryAfter = Duration(seconds: 30);
 const _kAid = 'hm_aid', _kQueue = 'hm_queue', _kProfile = 'hm_profile', _kOptOut = 'hm_opt_out';
